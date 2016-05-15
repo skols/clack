@@ -3,6 +3,8 @@ var React       = require("react"),
     
 var Messages = React.createClass({
     render: function() {
+        if (!this.props.messages) {return null;}
+        
         var messageList = this.props.messages.map(function(message, i) {
 			var text = message.text;
 			return (
