@@ -1,0 +1,30 @@
+<html>
+	<head>
+		<link href="static/custom.css" rel="stylesheet" type="text/css"/>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<title></title>
+		<link href="https://fonts.googleapis.com/css?family=Lato:400,700,900" rel="stylesheet" type="text/css">
+		<!-- ReactJS -->
+		<!--<script src="https://fb.me/react-15.0.2.js"></script>-->
+		<!--<script src="https://fb.me/react-dom-15.0.2.js"></script>-->
+		
+		<!--Babel -->
+		<!--<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.24/browser.min.js"></script>-->
+		
+		<!-- jQuery -->
+		<script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+		
+		<!-- Pusher JS library -->
+		<script src="https://js.pusher.com/3.1/pusher.min.js"></script>
+		<script>
+			Pusher.log = function(msg) { console.log(msg); };
+			var PUSHER_CHAT_APP_KEY = "{{ config['PUSHER_CHAT_APP_KEY'] }}"
+		</script>
+	</head>
+	<body>
+		<div id="app">
+			<script src="static/bundle.js"></script>
+		</div>
+	</body>
+</html>

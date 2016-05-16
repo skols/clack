@@ -2,7 +2,8 @@ var React       = require("react"),
     ReactDOM    = require("react-dom"),
     Messages    = require("./Messages"),
     Channels    = require("./Channels"),
-    Modal       = require("react-modal");
+    Modal       = require("react-modal"),
+    Users		= require("./Users");
 
 const customStyles = {
   content : {
@@ -21,34 +22,22 @@ var Chat = React.createClass({
 	getInitialState: function() {
 		return {
 			name: null,
-			channels: [],
+			channels: {},
 			messages: {},
+			users: {},
 			currentChannel: null
 		};
 	},
 	
-	componentDidMount: function() {
-		this.createChannel(DEFAULT_CHANNEL);
-		
-		var messages = {};
-		
-		messages[DEFAULT_CHANNEL] = [
-			{
-				name: 'codeupstart',
-				time: new Date(),
-				text: 'Hi there! 😘'
-			},
-			{
-				name: 'codeupstart',
-				time: new Date(),
-				text: 'Welcome to your chat app'
-			}
-		];
-		
-		this.setState({
-			messages: messages
-		});
+	// Excecutes before initial render call
+	componentWillMount: function() {
+		this.chatRooms = {};
 	},
+	
+	// Executes after initial render call
+	// componentDidMount: function() {
+		
+	// },
 	
 	componentDidUpdate: function() {
 		$("#message-list").scrollTop($("#message-list")[0].scrollHeight);
@@ -60,14 +49,12 @@ var Chat = React.createClass({
 			var message = {
 				name: this.state.name,
 				text: text,
-				time: new Date()
+				channel: this.state.currentChannel
 			};
 			
-			var messages = this.state.messages;
-			messages[this.state.currentChannel].push(message);
-			this.setState({ messages: messages });
-			
-			$('#msg-input').val('');
+			$.post('/messages/', message).success(function() {
+				$('#msg-input').val('');
+			});
 		}
 	},
 	
@@ -77,18 +64,57 @@ var Chat = React.createClass({
 			var messages = this.state.messages;
 			messages[channelName]= [];
 			
+			var channels = this.state.channels;
+			channels[channelName] = {unreadCount:0};
+			
 			this.setState({
-				channels: this.state.channels.concat(channelName),
+				channels: channels,
 				messages: messages
 			});
 			
-			this.setState({channels: this.state.channels.concat(channelName)});
 			this.joinChannel(channelName);
+			this.chatRooms[channelName] = this.pusher.subscribe("presence-" + channelName);
+			this.chatRooms[channelName].bind('new_message', function(message) {
+				var messages = this.state.messages;
+				var channels = this.state.channels;
+				
+				messages[channelName].push(message);
+				if (channelName != this.state.currentChannel) {
+					channels[channelName].unreadCount++;
+				}
+				this.setState({messages: messages, channels: channels});
+			}, this);
+			
+			// Handle populating online users
+			this.chatRooms[channelName].bind('pusher:subscription_succeeded', function(data) {
+				var users = this.state.users;
+				users[channelName] = Object.keys(data.members);
+				this.setState({users: users});
+			}, this);
+			
+			// Handle 'member joined channel' events
+			this.chatRooms[channelName].bind('pusher:member_added', function(user) {
+				var users = this.state.users;
+				users[channelName] = users[channelName].concat(user.id);
+				this.setState({users: users});
+			}, this);
+			
+			// Handle 'member left channel' events
+			this.chatRooms[channelName].bind('pusher:member_removed', function(user) {
+				var users = this.state.users;
+				i = users[channelName].indexOf(user.id);
+				users[channelName].splice(i,1);
+				this.setState({users: users});
+			}, this);
 		}
 	},
 	
 	joinChannel: function(channelName) {
-		this.setState({currentChannel: channelName})
+		// Reset unread count
+		var channels = this.state.channels;
+		channels[channelName].unreadCount = 0;
+		
+		this.setState({currentChannel: channelName, channels: channels});
 	},
 	
 	enterName: function(event) {
@@ -98,7 +124,17 @@ var Chat = React.createClass({
 			newName = "anonymous" + randomId;
 		}
 		
+		$.ajax({
+			type: 'POST',
+			url: "/setname/",
+			data: {name: newName},
+			async: false,
+		});
+		
+		this.pusher = new Pusher(PUSHER_CHAT_APP_KEY, { authEndpoint: '/pusher/auth/'});
 		this.setState({name: newName});
+		
+		this.createChannel(DEFAULT_CHANNEL);
 	},
 	
 	onEnter: function(event) {
@@ -138,6 +174,9 @@ var Chat = React.createClass({
                     	currentChannel={this.state.currentChannel}
                     	joinChannel={this.joinChannel}
                     />
+				</div>
+				<div className="online-users">
+					<Users users={this.state.users[this.state.currentChannel]} />
 				</div>
 				<div className="message-history">
 				    <Messages messages={this.state.messages[this.state.currentChannel]}/>
